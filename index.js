@@ -151,7 +151,36 @@ app.post('/status', async (req, res) => {
     }
 })
 
+const TIME_TO_CHECK = 15 * 1000;
+setInterval(async () => {
+    console.log('remover usuarios');
+    const seconds = Date.now() - 10 * 1000;
+    console.log({ seconds });
+    try {
+      const inactiveParticipants = await db
+        .collection('participants')
+        .find({ lastStatus: { $lte: seconds } })
+        .toArray();
+      if (inactiveParticipants.length > 0) {
+        const inativeMessages = inactiveParticipants.map(inactiveParticipant => {
+          return {
+            from: inactiveParticipant.name,
+            to: 'Todos',
+            text: 'sai da sala...',
+            type: 'status',
+            time: dayjs().format('HH:mm:ss')
+          };
+        });
+  
+        await db.collection('messages').insertMany(inativeMessages);
+        await db.collection('participants').deleteMany({ lastStatus: { $lte: seconds } });
+      }
+    } catch (error) {
+      console.log('Erro ao tentar remover usuários inativos!', error);
+      res.sendStatus(500);
+    }
 
+}, TIME_TO_CHECK);
 
 const PORT = process.env.PORT || 5000;
 
